@@ -102,11 +102,11 @@ class Game:
                          pygame.K_s: (180, "down"),
                          pygame.K_a: (90, "left")}
 
-        pygame.mixer.music.load("sfx\music.ogg")
+        pygame.mixer.music.load("Games\sfx\music.ogg")
         pygame.mixer.music.set_volume(0.25)
         pygame.mixer.music.play()
 
-        self.collect_sound = pygame.mixer.Sound("sfx\collect.wav")
+        self.collect_sound = pygame.mixer.Sound("Games\sfx\collect.wav")
         self.collect_sound.set_volume(0.5)
 
     def show_start_screen(self) -> None:
@@ -216,11 +216,11 @@ class Game:
         sprites = {}
 
         sprites["spaceship"] = pygame.image.load(
-            "gfx\ship.png").convert_alpha()
+            "Games\gfx\ship.png").convert_alpha()
         sprites["background"] = pygame.image.load(
-            "gfx\simple_game_bg.png").convert_alpha()
+            "Games\gfx\simple_game_bg.png").convert_alpha()
         sprites["collectible"] = pygame.image.load(
-            "gfx\collectible.png").convert_alpha()
+            "Games\gfx\collectible.png").convert_alpha()
         # Downscale
         sprites["spaceship"] = pygame.transform.scale(
             sprites["spaceship"], (48, 48))
