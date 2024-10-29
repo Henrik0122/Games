@@ -3,19 +3,19 @@ import random
 import time
 
 
-
 class Entity:
     def __init__(self, x: float, y: float, velocity: float, sprite: pygame.surface) -> None:
         self.x = x
         self.y = y
         self.velocity = velocity
         self.sprite = sprite
-    
+
     def update(self, dt) -> None:
         pass
 
     def render(self, screen: pygame.surface) -> None:
         pass
+
 
 class Player(Entity):
     def __init__(self, x: float, y: float, velocity: float, sprite: pygame.surface, gravity_constant: float) -> None:
@@ -29,6 +29,7 @@ class Player(Entity):
     def render(self, screen: pygame.surface) -> None:
         screen.blit(self.sprite, (self.x, self.y))
 
+
 class Game:
     def __init__(self) -> None:
         pygame.init()
@@ -38,7 +39,7 @@ class Game:
 
         self.previous_time = None
 
-        #GAME Constants
+        # GAME Constants
         self.GRAVITY_CONSTANT = 1700
         self.PLAYER_VEL = 200
 
@@ -49,7 +50,6 @@ class Game:
                              self.GRAVITY_CONSTANT
                              )
 
-
     def poll_events(self) -> None:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -58,14 +58,13 @@ class Game:
     def update(self) -> None:
         if self.previous_time is None:
             self.previous_time = time.time()
-        
+
         # Delta time
         now = time.time()
         dt = now - self.previous_time
         self.previous_time = now
 
         self.player.update(dt)
-
 
     def render(self) -> None:
         self.screen.fill("black")
@@ -84,11 +83,14 @@ class Game:
     def load_sprites(self) -> dict:
         sprites = {}
 
+<<<<<<< HEAD
         sprites["player"] = pygame.image.load(r"Games\gfx\ball.png").convert_alpha()
 
+=======
+        sprites["player"] = pygame.image.load(r"gfx\ball.png").convert_alpha()
+>>>>>>> 6639394158aa56b0ebc164fac9c2059877dcaf77
 
         return sprites
-
 
 
 g = Game()
