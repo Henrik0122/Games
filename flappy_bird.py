@@ -252,8 +252,36 @@ class MainScene(Scene):
 
 
 class StartScene(Scene):
-    pass
+    def __init__(self,
+                 manager: SceneManager,
+                 screen: pygame.Surface,
+                 sprites: dict) -> None:
+        super().__init__(manager, screen, sprites)
+        self.font = pygame.font.SysFont("Arial", 36)
+        self.text = "Press Space to begin."
+        self.text_x = 400
+        self.text_y = 200
+    
+    def update(self) -> None:
+        pass
 
+    def render(self) -> None:
+        #Clear screen
+        self.screen.fill("black")
+
+        self.screen.blit(self.font.render(self.text, True, "white"), (self.text_x, self.text_y))
+
+        #update the display
+        pygame.display.update()
+
+    def poll_events(self) -> None:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                self.manager.quit_game()
+            
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE:
+                    self.manager.set_scene("main")
 
 class DeathScene(Scene):
     pass
@@ -267,9 +295,9 @@ class Game:
         self.sprites = self.load_sprites()
 
         self.scene_manager = SceneManager()
-        scenes = {"main": MainScene(
-            self.scene_manager, self.screen, self.sprites)}
-        self.scene_manager.initialize(scenes, "main")
+        scenes = {"main": MainScene(self.scene_manager, self.screen, self.sprites),
+                  "start": StartScene(self.scene_manager,self.screen, self.sprites)}
+        self.scene_manager.initialize(scenes, "start")
 
     def run(self) -> None:
         while self.running:
