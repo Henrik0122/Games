@@ -286,9 +286,8 @@ class Game:
     def load_sprites(self) -> dict:
         sprites = {}
 
-        sprites["player"] = pygame.image.load("gfx/ball.png").convert_alpha()
-        sprites["obstacle"] = pygame.image.load(
-            "gfx/block.png").convert_alpha()
+        sprites["player"] = pygame.image.load(r"Games\gfx\ball.png").convert_alpha()
+        sprites["obstacle"] = pygame.image.load(r"Games\gfx\block.png").convert_alpha()
 
         return sprites
 
