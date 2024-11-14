@@ -26,10 +26,16 @@ class Player(Entity):
                  gravity_constant: float) -> None:
         super().__init__(x, y, velocity, sprite)
         self.gravity_constant = gravity_constant
+        self.rect = self.sprite.get_rect()
 
     def update(self, dt) -> None:
         self.y += self.velocity * dt
         self.velocity += self.gravity_constant * dt
+
+        # update rect
+        self.rect.x = int(self.x)
+        self.rect.y = int(self.y)
+
 
     def render(self, screen: pygame.Surface) -> None:
         screen.blit(self.sprite, (self.x, self.y))
@@ -45,9 +51,14 @@ class Obstacle(Entity):
                      sprite: pygame.Surface) -> None:
 
             super().__init__(x, y, velocity, sprite)
+            self.rect = self.sprite.get_rect()
 
         def update(self, dt) -> None:
             self.x += self.velocity * dt
+
+            # Update rect
+            self.rect.x = int(self.x)
+            self.rect.y = int(self.y)
 
         def render(self, screen: pygame.Surface) -> None:
             screen.blit(self.sprite, (self.x, self.y))
@@ -171,6 +182,11 @@ class SceneManager:
     def quit_game(self) -> None:
         self.quit = True
 
+    def reset_main(self) -> None:
+        new_scene = MainScene(self,
+                              self.scenes["main"].screen,
+                              self.scenes["main"].sprites)
+        self.scenes["main"] = new_scene
 
 class Scene:
     def __init__(self,
@@ -233,6 +249,10 @@ class MainScene(Scene):
         self.player.update(dt)
         self.env.update(dt)
 
+        # Check death conditions
+        if self.player_collision() or self.player.y > self.screen.get_height():
+            self.manager.set_scene("death")
+
     def render(self) -> None:
         self.screen.fill("black")
 
@@ -249,7 +269,12 @@ class MainScene(Scene):
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:
                     self.player.velocity = self.JUMP_CONSTANT
-
+    def player_collision(self) -> bool:
+        for o in self.env.obstacles:
+            for b in o.blocks:
+                if b.rect.colliderect(self.player.rect):
+                    return True
+        return False
 
 class StartScene(Scene):
     def __init__(self,
@@ -257,6 +282,7 @@ class StartScene(Scene):
                  screen: pygame.Surface,
                  sprites: dict) -> None:
         super().__init__(manager, screen, sprites)
+
         self.font = pygame.font.SysFont("Arial", 36)
         self.text = "Press Space to begin."
         self.text_x = 400
@@ -284,8 +310,39 @@ class StartScene(Scene):
                     self.manager.set_scene("main")
 
 class DeathScene(Scene):
-    pass
 
+    def __init__(self,
+                manager: SceneManager, 
+                screen: pygame.Surface, 
+                sprites: dict) -> None:
+        super().__init__(manager, screen, sprites)
+
+        self.font = pygame.font.SysFont("Arial", 36)
+        self.text = "You died! Press space to restart."
+        self.text_x = 400
+        self.text_y = 200
+    
+    def update(self) -> None:
+        pass
+
+    def render(self) -> None:
+        #Clear screen
+        self.screen.fill((59, 3, 3))
+
+        self.screen.blit(self.font.render(self.text, True, "white"), (self.text_x, self.text_y))
+
+        #update the display
+        pygame.display.update()
+
+    def poll_events(self) -> None:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                self.manager.quit_game()
+            
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE:
+                    self.manager.reset_main()
+                    self.manager.set_scene("main")
 
 class Game:
     def __init__(self) -> None:
@@ -296,7 +353,8 @@ class Game:
 
         self.scene_manager = SceneManager()
         scenes = {"main": MainScene(self.scene_manager, self.screen, self.sprites),
-                  "start": StartScene(self.scene_manager,self.screen, self.sprites)}
+                  "start": StartScene(self.scene_manager,self.screen, self.sprites),
+                  "death": DeathScene(self.scene_manager, self.screen, self.sprites)}
         self.scene_manager.initialize(scenes, "start")
 
     def run(self) -> None:
