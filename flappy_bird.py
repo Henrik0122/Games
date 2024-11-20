@@ -28,6 +28,13 @@ class Player(Entity):
         self.gravity_constant = gravity_constant
         self.rect = self.sprite.get_rect()
 
+        #sounds
+
+        self.jump_sound = pygame.mixer.Sound(r"Games\sfx\bounce.wav")
+        self.jump_sound.set_volume(0.1)
+        self.death_sound =pygame.mixer.Sound(r"Games\sfx\death.wav")
+        self.death_sound.set_volume(0.5)
+
     def update(self, dt) -> None:
         self.y += self.velocity * dt
         self.velocity += self.gravity_constant * dt
@@ -39,6 +46,12 @@ class Player(Entity):
 
     def render(self, screen: pygame.Surface) -> None:
         screen.blit(self.sprite, (self.x, self.y))
+
+    def play_jump_sound(self) -> None:
+        self.jump_sound.play()
+
+    def play_death_sound(self) -> None:
+        self.death_sound.play()
 
 
 class Obstacle(Entity):
@@ -86,6 +99,8 @@ class Obstacle(Entity):
 
         self.blocks = self.create_blocks()
 
+        self.passed = False
+
     def create_blocks(self) -> list[ObstacleBlock]:
         o = []
         current_block = 0
@@ -128,6 +143,8 @@ class Environment:
         self.obstacle_spawn_point = 1280
         self.new_obstacle_timer = 0
 
+        self.score_tracker = 0
+
     def add_obstacle(self, obstacle: Obstacle) -> None:
         self.obstacles.append(obstacle)
 
@@ -139,6 +156,10 @@ class Environment:
             o.update(dt)
             if o.x < -200:
                 self.remove_obstacle()
+
+            if o.x < self.player.x and not o.passed:
+                o.passed = True
+                self.score_tracker += 1
 
         if self.new_obstacle_timer > self.freq:  # Time to spawn a new obstacle
 
@@ -162,6 +183,25 @@ class Environment:
     def render(self, screen: pygame.Surface) -> None:
         for o in self.obstacles:
             o.render(screen)
+
+class Score:
+    def __init__(self,
+                 x,
+                 y) -> None:
+        self.font = pygame.font.SysFont("Calibri", 36)
+        self.score = 0
+        self.text = str(self.score)
+        self.x = x
+        self.y = y
+
+    def add_score(self) -> None:
+        self.score += 1
+
+    def update(self) -> None:
+        self.text = str(self.score)
+
+    def render(self, screen: pygame.Surface) -> None:
+        screen.blit(self.font.render(self.text, True, "white"), (self.x, self.y))
 
 
 class SceneManager:
@@ -220,7 +260,7 @@ class MainScene(Scene):
         self.GRAVITY_CONSTANT = 1700
         self.PLAYER_VEL = 200
         self.JUMP_CONSTANT = -450
-        self.OBS_FREQ = 800
+        self.OBS_FREQ = 1600
         self.OBS_VEL = -200
         self.OBS_GAP = 2
 
@@ -237,6 +277,8 @@ class MainScene(Scene):
                                self.OBS_VEL,
                                self.OBS_GAP)
 
+        self.score = Score(self.screen.get_width()/2, 50)
+
     def update(self) -> None:
         if self.previous_time is None:  # First run through the loop
             self.previous_time = time.time()
@@ -251,13 +293,22 @@ class MainScene(Scene):
 
         # Check death conditions
         if self.player_collision() or self.player.y > self.screen.get_height():
+            self.player.play_death_sound()
             self.manager.set_scene("death")
+
+        if self.env.score_tracker > self.score.score:
+            self.score.add_score()
+        
+        self.score.update()
 
     def render(self) -> None:
         self.screen.fill("black")
 
+        self.screen.blit(self.sprites["background"], (0, 0))
+
         self.player.render(self.screen)
         self.env.render(self.screen)
+        self.score.render(self.screen)
 
         pygame.display.update()
 
@@ -269,6 +320,8 @@ class MainScene(Scene):
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:
                     self.player.velocity = self.JUMP_CONSTANT
+                    self.player.play_jump_sound()
+
     def player_collision(self) -> bool:
         for o in self.env.obstacles:
             for b in o.blocks:
@@ -357,6 +410,11 @@ class Game:
                   "death": DeathScene(self.scene_manager, self.screen, self.sprites)}
         self.scene_manager.initialize(scenes, "start")
 
+        #play music
+        pygame.mixer.music.load(r"Games\sfx\musicBird.wav")
+        pygame.mixer.music.set_volume(0.1)
+        pygame.mixer.music.play()
+
     def run(self) -> None:
         while self.running:
 
@@ -374,6 +432,7 @@ class Game:
 
         sprites["player"] = pygame.image.load(r"Games\gfx\ball.png").convert_alpha()
         sprites["obstacle"] = pygame.image.load(r"Games\gfx\block.png").convert_alpha()
+        sprites["background"] = pygame.image.load(r"Games\gfx\bg.png").convert_alpha()
 
         return sprites
 
