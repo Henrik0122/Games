@@ -1,6 +1,7 @@
 import pygame
 import random
 import time
+from pygame_util import Scene
 
 
 class Entity:
@@ -228,24 +229,6 @@ class SceneManager:
                               self.scenes["main"].sprites)
         self.scenes["main"] = new_scene
 
-class Scene:
-    def __init__(self,
-                 manager: SceneManager,
-                 screen: pygame.Surface,
-                 sprites: dict) -> None:
-        self.manager = manager
-        self.screen = screen
-        self.sprites = sprites
-
-    def update(self) -> None:
-        pass
-
-    def render(self) -> None:
-        pass
-
-    def poll_events(self) -> None:
-        pass
-
 
 class MainScene(Scene):
     def __init__(self,
@@ -337,7 +320,7 @@ class StartScene(Scene):
         super().__init__(manager, screen, sprites)
 
         self.font = pygame.font.SysFont("Arial", 36)
-        self.text = "Press Space to begin."
+        self.text = "Press Space to begin. Press Q to quit."
         self.text_x = 400
         self.text_y = 200
     
@@ -361,6 +344,8 @@ class StartScene(Scene):
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:
                     self.manager.set_scene("main")
+                elif event.key == pygame.K_q:
+                    self.manager.quit_game()
 
 class DeathScene(Scene):
 
@@ -371,7 +356,7 @@ class DeathScene(Scene):
         super().__init__(manager, screen, sprites)
 
         self.font = pygame.font.SysFont("Arial", 36)
-        self.text = "You died! Press space to restart."
+        self.text = "You died! Press space to restart. Press Q to quit."
         self.text_x = 400
         self.text_y = 200
     
@@ -396,6 +381,8 @@ class DeathScene(Scene):
                 if event.key == pygame.K_SPACE:
                     self.manager.reset_main()
                     self.manager.set_scene("main")
+                elif event.key == pygame.K_q:
+                    self.manager.quit_game()
 
 class Game:
     def __init__(self) -> None:

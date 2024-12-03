@@ -80,6 +80,151 @@ class Tilemap:
             x_coord = 0
             self.map.append(row)
 
+class Button:
+    def __init__(self,
+                 x,
+                 y,
+                 text: str) -> None:
+        self.x = x
+        self.y = y
+
+        self.font = pygame.font.SysFont("Calibri", 36)
+        self.color = "white"
+        self.text = text
+
+        self.text_surface = self.font.render(self.text, True, self.color)
+        self.rect = self.text_surface.get_rect()
+        self.rect.x = self.x
+        self.rect.y = self.y
+
+        self.hovered = False
+
+        self.event = lambda: print("Default Button")
+
+    def update(self, dt):
+        if self.hovered is True:
+            self.color = "blue"
+        else:
+            self.color = "white"
+        self.text_surface = self.font.render(self.text, True, self.color)
+
+    def set_hover(self, hovered: bool):
+        self.hovered = hovered
+
+    def register_event(self, func):
+        self.event = func
+
+    def render(self, screen: pygame.surface):
+        screen.blit(self.text_surface, (self.x, self.y,))
+
+class Animation:
+    def __init__(self,
+                 name: str,
+                 tileset: Tileset,
+                 keyframes: list[int]) -> None:
+        self.name = name
+        self.tileset = tileset
+        self.keyframes = keyframes
+
+        self.current_sprite_id = 0
+        self.loop_animation = False
+        self.animation_frequency = 0
+        self.current_keyframe = 0
+        self.keyframe_time = 0
+
+    def get_current_sprite(self) -> pygame.surface:
+        return self.tileset.get_tile_sprite(self.current_sprite_id)
+
+    def activate_animation(self, frequency: float, loop: bool):
+        self.animation_frequency = frequency
+        self.loop_animation = loop
+    
+    def deactivate_animation(self):
+        self.animation_frequency = 0
+        self.loop_animation = False
+
+    def update(self, dt) -> None:
+        self.keyframe_time += dt
+
+        if self.keyframe_time >= self.animation_frequency:
+            if len(self.keyframes) - 1 <= self.current_keyframe:
+
+                if self.loop_animation is True:
+                    self.current_keyframe = 0
+                else:
+                    self.deactivate_animation()
+            else:
+                self.current_keyframe += 1
+                self.current_sprite_id = self.keyframes[self.current_keyframe]
+
+            self.keyframe_time = 0
+
+class AnimationManager:
+    pass
+
+
+class MenuScene(Scene):
+    def __init__(self, 
+                 manager: SceneManager, 
+                 screen: pygame.Surface, 
+                 sprites: dict) -> None:
+        super().__init__(manager, screen, sprites)
+
+        self.previous_time = None
+
+        # Create buttons
+        self.quit_button = Button(500, 400, "Quit Game")
+        self.start_button = Button(500, 300, "Start Game")
+
+        # Create button events
+        def quit_button():
+            self.manager.quit = True
+
+        def start_button():
+            self.manager.set_scene("main")
+
+        self.quit_button.register_event(quit_button)
+        self.start_button.register_event(start_button)
+
+        self.buttons = [self.quit_button, self.start_button]
+
+    def update(self) -> None:
+        if self.previous_time is None:
+            self.previous_time = time.time()
+
+        # Delta time
+        now = time.time()
+        dt = now - self.previous_time
+        self.previous_time = now
+
+        mouse_x, mouse_y = pygame.mouse.get_pos()
+
+        for b in self.buttons:
+            if b.hovered == False and b.rect.collidepoint(mouse_x, mouse_y):
+                b.hovered = True
+            if b.hovered == True and not b.rect.collidepoint(mouse_x, mouse_y):
+                b.hovered = False
+
+        self.quit_button.update(dt)
+        self.start_button.update(dt)
+    
+    def render(self) -> None:
+        self.screen.fill("black")
+
+        self.quit_button.render(self.screen)
+        self.start_button.render(self.screen)
+
+        pygame.display.update()
+
+    def poll_events(self) -> None:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                self.manager.quit_game()
+        # Mouse detection
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                for b in self.buttons:
+                    if b.hovered:
+                        b.event()
 
 class MainScene(Scene):
     def __init__(self, manager: SceneManager, screen: pygame.Surface, sprites: dict) -> None:
@@ -100,7 +245,7 @@ class MainScene(Scene):
                         [81, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,79],
                         [112,69,69,69,69,69,69,69,69,69,69,69,69,69,69,69,69,69,69,69,69,69,69,69,113]]
 
-        self.tileset = Tileset("gfx/rpg_sprites.png", 16, 4)
+        self.tileset = Tileset(r"Games\gfx\rpg_sprites.png", 16, 4)
         # Create our tilemap
         self.tilemap = Tilemap(MAP, self.tileset)   
 
@@ -142,8 +287,9 @@ class Game:
         # Scene system
         self.scene_manager = SceneManager()
 
-        scenes = {"main": MainScene(self.scene_manager, self.screen, self.sprites)}
-        self.scene_manager.initialize(scenes, "main")
+        scenes = {"main": MainScene(self.scene_manager, self.screen, self.sprites),
+                  "menu": MenuScene(self.scene_manager, self.screen, self.sprites)}
+        self.scene_manager.initialize(scenes, "menu")
 
 
     # MAIN GAME LOOP #
