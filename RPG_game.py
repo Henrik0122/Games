@@ -118,7 +118,56 @@ class Button:
         screen.blit(self.text_surface, (self.x, self.y,))
 
 class Player:
-    pass
+    def __init__(self, spritesheets: dict, x, y) -> None:
+        self.x = x
+        self.y = y
+        self.velocity = 250
+        self.direction = "down"
+        self.moving = False
+
+        self.animations = AnimationManager(spritesheets, 16, 4)
+
+        # Walking animations
+        self.animations.register_animation("walking_right", [3, 7, 11, 15], "walking_animations")
+        self.animations.register_animation("walking_left", [2, 6, 10, 14], "walking_animations")
+        self.animations.register_animation("walking_up", [1, 5, 9, 13], "walking_animations")
+        self.animations.register_animation("walking_down", [0, 4, 8, 12], "walking_animations")
+
+        # Stationary sprites
+        self.animations.register_animation("stationary_down", [0, 0, 0], "walking_animations")
+        self.animations.register_animation("stationary_up", [1, 1, 1], "walking_animations")
+        self.animations.register_animation("stationary_left", [2, 2, 2], "walking_animations")
+        self.animations.register_animation("stationary_right", [3, 3, 3], "walking_animations")
+
+    def move(self, dt) -> None:
+        if self.direction == "up":
+            self.y -= self.velocity * dt
+        elif self.direction == "down":
+            self.y += self.velocity * dt
+        elif self.direction == "left":
+            self.x -= self.velocity * dt
+        elif self.direction == "right":
+            self.x += self.velocity * dt
+
+    def set_direction(self, new_direction: str) -> None:
+        self.direction = new_direction
+
+    def start_moving(self, animation: str) -> None:
+        self.moving = True
+        self.animations.activate_animation(animation, 0.15, True)
+
+    def stop_moving(self) -> None:
+        self.moving = False
+        self.animations.activate_animation("stationary_" + self.direction, 0.1, True)
+
+    def update(self, dt) -> None:
+        if self.moving:
+            self.move(dt)
+        
+        self.animations.update(dt)
+    
+    def render(self, screen: pygame.surface) -> None:
+        screen.blit(self.animations.get_current_sprite(), (self.x, self.y))
 
 class Enemy:
     def __init__(self, spritesheets: dict, x, y) -> None:
@@ -305,7 +354,19 @@ class MainScene(Scene):
         self.tilemap = Tilemap(MAP, self.tileset)
 
         enemy_anims = {"enemy_idle": self.sprites["enemy_idle"]}
-        self.enemy = Enemy(enemy_anims, 500, 500)   
+        self.enemy = Enemy(enemy_anims, 500, 500)
+
+        player_anims = {"walking_animations": self.sprites["player_walk"]}
+        self.player = Player(player_anims, 100, 100)  
+
+        # User input system
+        self.keybinds = {pygame.K_w: "up",
+                         pygame.K_s: "down",
+                         pygame.K_a: "left",
+                         pygame.K_d: "right"}
+        
+        self.keystack = []
+        self.current_key = None
 
 
     def update(self) -> None:
@@ -318,6 +379,7 @@ class MainScene(Scene):
         self.previous_time = now
 
         self.enemy.update(dt)
+        self.player.update(dt)
 
     def render(self) -> None:
         # Clear screen
@@ -328,6 +390,7 @@ class MainScene(Scene):
                 self.screen.blit(x.sprite, (x.x, x.y))
 
         self.enemy.render(self.screen)
+        self.player.render(self.screen)
 
         # Update display
         pygame.display.update()
@@ -337,6 +400,23 @@ class MainScene(Scene):
 
             if event.type == pygame.QUIT: # If the user closes the window
                 self.manager.quit_game()         
+
+            if event.type == pygame.KEYDOWN and event.key in self.keybinds:
+                self.keystack.append(event.key)
+
+            if event.type == pygame.KEYUP and event.key in self.keybinds:
+                self.keystack.remove(event.key)
+
+            if len(self.keystack) > 0:
+                if self.current_key != self.keystack[-1]:
+                    self.current_key = self.keystack[-1]
+
+                    self.player.set_direction(self.keybinds[self.current_key])
+                    self.player.start_moving("walking_" + self.keybinds[event.key])
+
+            if len(self.keystack) == 0:
+                self.current_key = None
+                self.player.stop_moving()
 
 class Game:
     def __init__(self) -> None:
@@ -374,6 +454,7 @@ class Game:
         sprites = {}
 
         sprites["enemy_idle"] = pygame.image.load(r"Games\gfx\enemy_idle.png").convert_alpha()
+        sprites["player_walk"] = pygame.image.load(r"Games\gfx\player_animations.png").convert_alpha()
 
         return sprites
 
