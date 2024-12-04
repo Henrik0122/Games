@@ -117,50 +117,24 @@ class Button:
     def render(self, screen: pygame.surface):
         screen.blit(self.text_surface, (self.x, self.y,))
 
-class Animation:
-    def __init__(self,
-                 name: str,
-                 tileset: Tileset,
-                 keyframes: list[int]) -> None:
-        self.name = name
-        self.tileset = tileset
-        self.keyframes = keyframes
-
-        self.current_sprite_id = 0
-        self.loop_animation = False
-        self.animation_frequency = 0
-        self.current_keyframe = 0
-        self.keyframe_time = 0
-
-    def get_current_sprite(self) -> pygame.surface:
-        return self.tileset.get_tile_sprite(self.current_sprite_id)
-
-    def activate_animation(self, frequency: float, loop: bool):
-        self.animation_frequency = frequency
-        self.loop_animation = loop
-    
-    def deactivate_animation(self):
-        self.animation_frequency = 0
-        self.loop_animation = False
-
-    def update(self, dt) -> None:
-        self.keyframe_time += dt
-
-        if self.keyframe_time >= self.animation_frequency:
-            if len(self.keyframes) - 1 <= self.current_keyframe:
-
-                if self.loop_animation is True:
-                    self.current_keyframe = 0
-                else:
-                    self.deactivate_animation()
-            else:
-                self.current_keyframe += 1
-                self.current_sprite_id = self.keyframes[self.current_keyframe]
-
-            self.keyframe_time = 0
-
-class AnimationManager:
+class Player:
     pass
+
+class Enemy:
+    def __init__(self, spritesheets: dict, x, y) -> None:
+        self.spritesheets = spritesheets
+        self.x = x
+        self.y = y
+
+        self.animations = AnimationManager(spritesheets, 50, 4)
+        self.animations.register_animation("idle", [0, 1, 2, 3, 4], "enemy_idle")
+        self.animations.activate_animation("idle", 0.1, True)
+    
+    def update(self, dt):
+        self.animations.update(dt)
+
+    def render(self, screen: pygame.surface):
+        screen.blit(self.animations.get_current_sprite(), (self.x, self.y))
 
 
 class MenuScene(Scene):
@@ -226,6 +200,87 @@ class MenuScene(Scene):
                     if b.hovered:
                         b.event()
 
+class Animation:
+    def __init__(self,
+                 name: str,
+                 tileset: Tileset,
+                 keyframes: list[int]) -> None:
+        self.name = name
+        self.tileset = tileset
+        self.keyframes = keyframes
+
+        self.current_sprite_id = 0
+        self.loop_animation = False
+        self.animation_frequency = 0
+        self.current_keyframe = 0
+        self.keyframe_time = 0
+
+    def get_current_sprite(self) -> pygame.surface:
+        return self.tileset.get_tile_sprite(self.current_sprite_id)
+
+    def activate_animation(self, frequency: float, loop: bool):
+        self.animation_frequency = frequency
+        self.loop_animation = loop
+    
+    def deactivate_animation(self):
+        self.animation_frequency = 0
+        self.loop_animation = False
+
+    def update(self, dt) -> None:
+        self.keyframe_time += dt
+
+        if self.keyframe_time >= self.animation_frequency:
+            if len(self.keyframes) - 1 <= self.current_keyframe:
+
+                if self.loop_animation is True:
+                    self.current_keyframe = 0
+                else:
+                    self.deactivate_animation()
+            else:
+                self.current_keyframe += 1
+                self.current_sprite_id = self.keyframes[self.current_keyframe]
+
+            self.keyframe_time = 0
+
+class AnimationManager:
+    def __init__(self, 
+                 spritesheets: dict,
+                 tilesize: int,
+                 scale: int) -> None:
+        
+        self.tilesets = {}
+
+        for s in spritesheets:
+            tileset = Tileset("none", tilesize, scale, spritesheets[s])
+            self.tilesets[s] = tileset
+
+        self.animations = {}
+
+        self.current_tileset = None
+
+        self.active_animation = Animation("dummy", self.tilesets[list(self.tilesets.keys())[0]], [0])
+
+    def register_animation(self, name: str, sprite_ids: list[int], tileset: str):
+        self.animations[name] = Animation(name, self.tilesets[tileset], sprite_ids)
+
+    def get_current_sprite(self) -> pygame.surface:
+        if self.active_animation is not None:
+            return self.active_animation.get_current_sprite()
+        else:
+            return pygame.surface((0, 0))
+
+    def update(self, dt):
+        if self.active_animation is not None:
+            self.active_animation.update(dt)
+
+    def activate_animation(self, animation: str, frequency: float, loop: bool):
+        self.active_animation = self.animations[animation]
+        self.active_animation.animation_frequency = frequency
+        self.active_animation.loop_animation = loop
+    
+    def deactivate_animation(self):
+        self.active_animation = None
+
 class MainScene(Scene):
     def __init__(self, manager: SceneManager, screen: pygame.Surface, sprites: dict) -> None:
         super().__init__(manager, screen, sprites)
@@ -247,7 +302,10 @@ class MainScene(Scene):
 
         self.tileset = Tileset(r"Games\gfx\rpg_sprites.png", 16, 4)
         # Create our tilemap
-        self.tilemap = Tilemap(MAP, self.tileset)   
+        self.tilemap = Tilemap(MAP, self.tileset)
+
+        enemy_anims = {"enemy_idle": self.sprites["enemy_idle"]}
+        self.enemy = Enemy(enemy_anims, 500, 500)   
 
 
     def update(self) -> None:
@@ -259,6 +317,8 @@ class MainScene(Scene):
         dt = now - self.previous_time
         self.previous_time = now
 
+        self.enemy.update(dt)
+
     def render(self) -> None:
         # Clear screen
         self.screen.fill("black")
@@ -266,6 +326,8 @@ class MainScene(Scene):
         for y in self.tilemap.map:
             for x in y:
                 self.screen.blit(x.sprite, (x.x, x.y))
+
+        self.enemy.render(self.screen)
 
         # Update display
         pygame.display.update()
@@ -310,6 +372,8 @@ class Game:
     # Returns a dictionary of names to surfaces.
     def load_sprites(self) -> dict: 
         sprites = {}
+
+        sprites["enemy_idle"] = pygame.image.load(r"Games\gfx\enemy_idle.png").convert_alpha()
 
         return sprites
 
