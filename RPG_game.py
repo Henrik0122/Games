@@ -80,6 +80,27 @@ class Tilemap:
             x_coord = 0
             self.map.append(row)
 
+class Camera:
+    def __init__(self, screen: pygame.surface, subject) -> None:
+        self.screen = screen
+        self.screen_w = screen.get_width()
+        self.screen_h = screen.get_height()
+
+        self.subject = subject
+        self.camera_adjustment_x = 0
+        self.camera_adjustment_y = 0
+
+        # Initial camera adjustment
+        self.camera_adjustment_x = (self.screen_w/2) - self.subject.x
+        self.camera_adjustment_y = (self.screen_h/2) - self.subject.y
+
+    def get_camera_adjustment(self) -> tuple:
+        return (self.camera_adjustment_x, self.camera_adjustment_y)
+
+    def update(self, dt) -> None:
+        self.camera_adjustment_x = (self.screen_w/2) - self.subject.x
+        self.camera_adjustment_y = (self.screen_h/2) - self.subject.y
+
 class Button:
     def __init__(self,
                  x,
@@ -139,6 +160,12 @@ class Player:
         self.animations.register_animation("stationary_left", [2, 2, 2], "walking_animations")
         self.animations.register_animation("stationary_right", [3, 3, 3], "walking_animations")
 
+        # Attacks
+        self.animations.register_animation("attack_down", [0, 0, 0], "attack_animation")
+        self.animations.register_animation("attack_up", [1, 1, 1], "attack_animation")
+        self.animations.register_animation("attack_left", [2, 2, 2], "attack_animation")
+        self.animations.register_animation("attack_right", [3, 3, 3], "attack_animation")
+
     def move(self, dt) -> None:
         if self.direction == "up":
             self.y -= self.velocity * dt
@@ -148,6 +175,9 @@ class Player:
             self.x -= self.velocity * dt
         elif self.direction == "right":
             self.x += self.velocity * dt
+
+    def attack(self) -> None:
+        self.animations.activate_animation("attack_" + self.direction, 0.1, False)
 
     def set_direction(self, new_direction: str) -> None:
         self.direction = new_direction
@@ -166,8 +196,8 @@ class Player:
         
         self.animations.update(dt)
     
-    def render(self, screen: pygame.surface) -> None:
-        screen.blit(self.animations.get_current_sprite(), (self.x, self.y))
+    def render(self, screen: pygame.surface, camera_adjust: tuple) -> None:
+        screen.blit(self.animations.get_current_sprite(), (self.x + camera_adjust[0], self.y + camera_adjust[1]))
 
 class Enemy:
     def __init__(self, spritesheets: dict, x, y) -> None:
@@ -182,8 +212,8 @@ class Enemy:
     def update(self, dt):
         self.animations.update(dt)
 
-    def render(self, screen: pygame.surface):
-        screen.blit(self.animations.get_current_sprite(), (self.x, self.y))
+    def render(self, screen: pygame.surface, camera_adjust: tuple):
+        screen.blit(self.animations.get_current_sprite(), (self.x + camera_adjust[0], self.y + camera_adjust[1]))
 
 
 class MenuScene(Scene):
@@ -248,6 +278,38 @@ class MenuScene(Scene):
                 for b in self.buttons:
                     if b.hovered:
                         b.event()
+
+class Projectile:
+    def __init__(self, spritesheets: dict, x, y) -> None:
+        self.spritesheets = spritesheets
+        self.x = x
+        self.y = y
+        self.velocity = 500
+        self.direction = "right"
+
+        self.animation = AnimationManager(spritesheets, 16, 2)
+        self.animation.register_animation("projectile", [0, 1, 2, 3, 4], "projectile")
+        self.animation.activate_animation("projectile", 0.1, True)
+
+    def move(self, dt) -> None:
+        if self.direction == "up":
+            self.y -= self.velocity * dt
+        elif self.direction == "down":
+            self.y += self.velocity * dt
+        elif self.direction == "left":
+            self.x -= self.velocity * dt
+        elif self.direction == "right":
+            self.x += self.velocity * dt
+
+    def set_direction(self, new_direction: str) -> None:
+        self.direction = new_direction
+
+    def update(self, dt):
+        self.animation.update(dt)
+        self.move(dt)
+
+    def render(self, screen: pygame.surface, camera_adjust: tuple):
+        screen.blit(self.animation.get_current_sprite(), (self.x + camera_adjust[0], self.y + camera_adjust[1]))
 
 class Animation:
     def __init__(self,
@@ -356,8 +418,11 @@ class MainScene(Scene):
         enemy_anims = {"enemy_idle": self.sprites["enemy_idle"]}
         self.enemy = Enemy(enemy_anims, 500, 500)
 
-        player_anims = {"walking_animations": self.sprites["player_walk"]}
+        player_anims = {"walking_animations": self.sprites["player_walk"],
+                        "attack_animation": self.sprites["player_attack"]}
         self.player = Player(player_anims, 100, 100)  
+
+        self.camera = Camera(self.screen, self.player)
 
         # User input system
         self.keybinds = {pygame.K_w: "up",
@@ -368,6 +433,7 @@ class MainScene(Scene):
         self.keystack = []
         self.current_key = None
 
+        self.projectiles = []
 
     def update(self) -> None:
 
@@ -381,16 +447,25 @@ class MainScene(Scene):
         self.enemy.update(dt)
         self.player.update(dt)
 
+        for p in self.projectiles:
+            p.update(dt)
+
+        self.camera.update(dt)
+
     def render(self) -> None:
         # Clear screen
-        self.screen.fill("black")
+        self.screen.fill((30, 124, 184))
 
         for y in self.tilemap.map:
             for x in y:
-                self.screen.blit(x.sprite, (x.x, x.y))
+                self.screen.blit(x.sprite, (x.x + self.camera.get_camera_adjustment()[0],
+                                            x.y + self.camera.get_camera_adjustment()[1]))
 
-        self.enemy.render(self.screen)
-        self.player.render(self.screen)
+        self.enemy.render(self.screen, self.camera.get_camera_adjustment())
+        self.player.render(self.screen, self.camera.get_camera_adjustment())
+
+        for p in self.projectiles:
+            p.render(self.screen, self.camera.get_camera_adjustment())
 
         # Update display
         pygame.display.update()
@@ -400,6 +475,14 @@ class MainScene(Scene):
 
             if event.type == pygame.QUIT: # If the user closes the window
                 self.manager.quit_game()         
+
+            # Attack controls
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+                self.player.attack()
+                p = Projectile({"projectile": self.sprites["projectile"]}, self.player.x, self.player.y)
+                p.set_direction(self.player.direction)
+                self.projectiles.append(p)
+
 
             if event.type == pygame.KEYDOWN and event.key in self.keybinds:
                 self.keystack.append(event.key)
@@ -455,6 +538,8 @@ class Game:
 
         sprites["enemy_idle"] = pygame.image.load(r"Games\gfx\enemy_idle.png").convert_alpha()
         sprites["player_walk"] = pygame.image.load(r"Games\gfx\player_animations.png").convert_alpha()
+        sprites["player_attack"] = pygame.image.load(r"Games\gfx\attack.png").convert_alpha()
+        sprites["projectile"] = pygame.image.load(r"Games\gfx\projectile.png").convert_alpha()
 
         return sprites
 
